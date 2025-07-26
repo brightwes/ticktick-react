@@ -1,13 +1,13 @@
 import { useState, useEffect } from 'react'
-// import { ClerkProvider, SignIn, SignUp, useUser, useAuth } from '@clerk/clerk-react'
+import { ClerkProvider, SignIn, SignUp, useUser, useAuth } from '@clerk/clerk-react'
 import axios from 'axios'
 import './App.css'
 
-// const CLERK_PUBLISHABLE_KEY = import.meta.env.VITE_CLERK_PUBLISHABLE_KEY || 'pk_test_your_clerk_publishable_key_here'
+const CLERK_PUBLISHABLE_KEY = import.meta.env.VITE_CLERK_PUBLISHABLE_KEY || 'pk_test_your_clerk_publishable_key_here'
 
 function TaskTagger() {
-  // const { user, isLoaded } = useUser()
-  // const { getToken } = useAuth()
+  const { user, isLoaded } = useUser()
+  const { getToken } = useAuth()
   const [tasks, setTasks] = useState([])
   const [currentTaskIndex, setCurrentTaskIndex] = useState(0)
   const [processedTasks, setProcessedTasks] = useState(0)
@@ -15,16 +15,16 @@ function TaskTagger() {
   const [error, setError] = useState(null)
 
   const loadTasks = async () => {
-    // if (!user) return
+    if (!user) return
     
     setLoading(true)
     setError(null)
     
     try {
-      // const token = await getToken()
+      const token = await getToken()
       const response = await axios.get('/api/tasks', {
         headers: {
-          // 'Authorization': `Bearer ${token}`
+          'Authorization': `Bearer ${token}`
         }
       })
       
@@ -40,18 +40,17 @@ function TaskTagger() {
   }
 
   const saveTask = async (selectedTags) => {
-    // if (!user || currentTaskIndex >= tasks.length) return
-    if (currentTaskIndex >= tasks.length) return
+    if (!user || currentTaskIndex >= tasks.length) return
     
     try {
-      // const token = await getToken()
+      const token = await getToken()
       const currentTask = tasks[currentTaskIndex]
       
       await axios.post(`/api/tasks/${currentTask.id}/tags`, {
         tags: selectedTags
       }, {
         headers: {
-          // 'Authorization': `Bearer ${token}`
+          'Authorization': `Bearer ${token}`
         }
       })
 
@@ -64,26 +63,26 @@ function TaskTagger() {
   }
 
   useEffect(() => {
-    // if (user) {
+    if (user) {
       loadTasks()
-    // }
-  }, [])
+    }
+  }, [user])
 
-  // if (!isLoaded) {
-  //   return <div className="loading">Loading...</div>
-  // }
+  if (!isLoaded) {
+    return <div className="loading">Loading...</div>
+  }
 
-  // if (!user) {
-  //   return (
-  //     <div className="auth-container">
-  //       <div className="auth-card">
-  //         <h1>🔐 TickTick Task Tagger</h1>
-  //         <p>Sign in to manage your tasks</p>
-  //         <SignIn />
-  //       </div>
-  //     </div>
-  //   )
-  // }
+  if (!user) {
+    return (
+      <div className="auth-container">
+        <div className="auth-card">
+          <h1>🔐 TickTick Task Tagger</h1>
+          <p>Sign in to manage your tasks</p>
+          <SignIn />
+        </div>
+      </div>
+    )
+  }
 
   const currentTask = tasks[currentTaskIndex]
   const remainingTasks = tasks.length - processedTasks
@@ -94,10 +93,10 @@ function TaskTagger() {
         <h1>🏷️ TickTick Task Tagger</h1>
         <p>Automatically tag your unprocessed tasks</p>
         <div className="user-info">
-          <span>Welcome! (Demo Mode)</span>
-          {/* <button onClick={() => user.signOut()} className="btn btn-secondary">
+          <span>Welcome, {user.primaryEmailAddress?.emailAddress || 'User'}!</span>
+          <button onClick={() => user.signOut()} className="btn btn-secondary">
             Sign Out
-          </button> */}
+          </button>
         </div>
       </header>
 
@@ -251,9 +250,9 @@ function TaskCard({ task, onSave, onSkip }) {
 
 function App() {
   return (
-    // <ClerkProvider publishableKey={CLERK_PUBLISHABLE_KEY}>
+    <ClerkProvider publishableKey={CLERK_PUBLISHABLE_KEY}>
       <TaskTagger />
-    // </ClerkProvider>
+    </ClerkProvider>
   )
 }
 

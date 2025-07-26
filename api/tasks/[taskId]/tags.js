@@ -1,6 +1,29 @@
 const axios = require('axios');
+const { clerkClient } = require('@clerk/clerk-sdk-node');
 
 let accessToken = null;
+
+// Clerk authentication middleware
+const authenticateUser = async (req) => {
+  try {
+    const authHeader = req.headers.authorization;
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      throw new Error('No authorization token provided');
+    }
+
+    const token = authHeader.substring(7);
+    const session = await clerkClient.sessions.verifySession(token);
+    
+    if (!session) {
+      throw new Error('Invalid session');
+    }
+
+    return session;
+  } catch (error) {
+    console.error('Authentication error:', error);
+    throw new Error('Authentication failed');
+  }
+};
 
 // Authentication function for TickTick using API token
 async function authenticateTickTick() {
@@ -64,6 +87,9 @@ module.exports = async (req, res) => {
 
     console.log('API: Updating task...');
     
+    // Authenticate user with Clerk
+    const session = await authenticateUser(req);
+    
     const { taskId } = req.query;
     const { tags } = req.body;
 
@@ -71,32 +97,20 @@ module.exports = async (req, res) => {
       return res.status(400).json({ error: 'Missing taskId or tags' });
     }
 
-    // If no API token configured, just return success (mock mode)
     if (!process.env.TICKTICK_API_TOKEN) {
-      console.log('API: Mock mode - task update simulated');
-      return res.json({ 
-        success: true, 
-        message: 'Task updated successfully (mock mode)',
-        taskId,
-        tags: [...tags, 'processed']
+      return res.status(401).json({ 
+        error: 'TickTick API token not configured. Please set TICKTICK_API_TOKEN in your environment variables.'
       });
     }
 
-    try {
-      const updatedTask = await updateTask(taskId, tags);
-      res.json({ success: true, message: 'Task updated successfully' });
-    } catch (ticktickError) {
-      console.error('API: TickTick API failed, simulating success:', ticktickError.message);
-      // Simulate success in mock mode
-      res.json({ 
-        success: true, 
-        message: 'Task updated successfully (mock mode)',
-        taskId,
-        tags: [...tags, 'processed']
-      });
-    }
+    const updatedTask = await updateTask(taskId, tags);
+    res.json({ success: true, message: 'Task updated successfully' });
   } catch (error) {
     console.error('API: Error updating task:', error);
+    
+    if (error.message.includes('Authentication')) {
+      return res.status(401).json({ error: error.message });
+    }
     
     if (error.response?.status === 401) {
       return res.status(401).json({ 

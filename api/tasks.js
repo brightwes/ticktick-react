@@ -1,61 +1,30 @@
 const axios = require('axios');
-
-// Mock data for testing
-const mockTasks = [
-  {
-    id: '1',
-    title: 'Review quarterly reports',
-    content: 'Need to review and approve all Q4 reports before the deadline',
-    dueDate: '2024-01-15',
-    projectName: 'Finance',
-    priority: 'High',
-    tags: [],
-    suggestedTags: ['work', 'important', 'review', 'deadline']
-  },
-  {
-    id: '2',
-    title: 'Call mom',
-    content: 'Check in with mom about weekend plans',
-    dueDate: '2024-01-10',
-    projectName: 'Personal',
-    priority: 'Normal',
-    tags: [],
-    suggestedTags: ['personal', 'family']
-  },
-  {
-    id: '3',
-    title: 'Design new landing page',
-    content: 'Create wireframes and mockups for the new product landing page',
-    dueDate: '2024-01-20',
-    projectName: 'Marketing',
-    priority: 'High',
-    tags: [],
-    suggestedTags: ['work', 'creative', 'design', 'project']
-  },
-  {
-    id: '4',
-    title: 'Grocery shopping',
-    content: 'Buy ingredients for dinner this week',
-    dueDate: '2024-01-08',
-    projectName: 'Personal',
-    priority: 'Normal',
-    tags: [],
-    suggestedTags: ['personal', 'shopping']
-  },
-  {
-    id: '5',
-    title: 'Emergency client meeting',
-    content: 'Urgent meeting with client about project delays',
-    dueDate: '2024-01-09',
-    projectName: 'Client Relations',
-    priority: 'High',
-    tags: [],
-    suggestedTags: ['work', 'urgent', 'meeting', 'client']
-  }
-];
+const { clerkClient } = require('@clerk/clerk-sdk-node');
 
 // TickTick API configuration
 let accessToken = null;
+
+// Clerk authentication middleware
+const authenticateUser = async (req) => {
+  try {
+    const authHeader = req.headers.authorization;
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      throw new Error('No authorization token provided');
+    }
+
+    const token = authHeader.substring(7);
+    const session = await clerkClient.sessions.verifySession(token);
+    
+    if (!session) {
+      throw new Error('Invalid session');
+    }
+
+    return session;
+  } catch (error) {
+    console.error('Authentication error:', error);
+    throw new Error('Authentication failed');
+  }
+};
 
 // Authentication function for TickTick using API token
 async function authenticateTickTick() {
@@ -150,46 +119,40 @@ module.exports = async (req, res) => {
 
     console.log('API: Fetching tasks...');
     
+    // Authenticate user with Clerk
+    const session = await authenticateUser(req);
+    
     // Check if TickTick API token is configured
     if (!process.env.TICKTICK_API_TOKEN) {
-      console.log('API: Using mock data (no API token configured)');
-      // Return mock data for testing
-      const tasksWithSuggestions = mockTasks.map(task => ({
-        ...task,
-        suggestedTags: suggestTags(task.title, task.content)
-      }));
-      return res.json(tasksWithSuggestions);
+      console.error('API: TickTick API token not configured');
+      return res.status(401).json({ 
+        error: 'TickTick API token not configured. Please set TICKTICK_API_TOKEN in your environment variables.'
+      });
     }
 
-    try {
-      const tasks = await getTasks();
-      console.log('API: Fetched', tasks.length, 'tasks');
-      
-      // Filter for unprocessed tasks (no "processed" tag)
-      const unprocessedTasks = tasks.filter(task => 
-        !task.tags || !task.tags.includes('processed')
-      );
-      
-      console.log('API: Found', unprocessedTasks.length, 'unprocessed tasks');
-      
-      // Add tag suggestions to each task
-      const tasksWithSuggestions = unprocessedTasks.map(task => ({
-        ...task,
-        suggestedTags: suggestTags(task.title, task.content)
-      }));
-      
-      res.json(tasksWithSuggestions);
-    } catch (ticktickError) {
-      console.error('API: TickTick API failed, using mock data:', ticktickError.message);
-      // Fallback to mock data if TickTick API fails
-      const tasksWithSuggestions = mockTasks.map(task => ({
-        ...task,
-        suggestedTags: suggestTags(task.title, task.content)
-      }));
-      res.json(tasksWithSuggestions);
-    }
+    const tasks = await getTasks();
+    console.log('API: Fetched', tasks.length, 'tasks');
+    
+    // Filter for unprocessed tasks (no "processed" tag)
+    const unprocessedTasks = tasks.filter(task => 
+      !task.tags || !task.tags.includes('processed')
+    );
+    
+    console.log('API: Found', unprocessedTasks.length, 'unprocessed tasks');
+    
+    // Add tag suggestions to each task
+    const tasksWithSuggestions = unprocessedTasks.map(task => ({
+      ...task,
+      suggestedTags: suggestTags(task.title, task.content)
+    }));
+    
+    res.json(tasksWithSuggestions);
   } catch (error) {
     console.error('API: Error fetching tasks:', error);
+    
+    if (error.message.includes('Authentication')) {
+      return res.status(401).json({ error: error.message });
+    }
     
     if (error.response?.status === 401) {
       return res.status(401).json({ 
