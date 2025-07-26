@@ -27,30 +27,23 @@ const authenticateUser = async (req) => {
   }
 };
 
-// Authentication function for TickTick using direct login
+// Authentication function for TickTick using API token
 async function authenticateTickTick() {
   try {
-    console.log('Authenticating with TickTick using direct login...');
+    console.log('Authenticating with TickTick using API token...');
     
-    // Use direct login instead of OAuth2
-    const loginResponse = await axios.post('https://ticktick.com/api/v2/user/login', {
-      username: process.env.TICKTICK_USERNAME,
-      password: process.env.TICKTICK_PASSWORD
-    }, {
-      headers: {
-        'Content-Type': 'application/json'
-      }
-    });
+    // Use API token directly instead of username/password
+    const apiToken = process.env.TICKTICK_API_TOKEN;
     
-    if (loginResponse.data && loginResponse.data.token) {
-      accessToken = loginResponse.data.token;
-      console.log('TickTick direct authentication successful');
-      return accessToken;
-    } else {
-      throw new Error('No access token received from TickTick');
+    if (!apiToken) {
+      throw new Error('TickTick API token not configured');
     }
+    
+    accessToken = apiToken;
+    console.log('TickTick API token authentication successful');
+    return accessToken;
   } catch (error) {
-    console.error('TickTick direct authentication failed:', error.response?.data || error.message);
+    console.error('TickTick API token authentication failed:', error.message);
     throw error;
   }
 }
@@ -127,10 +120,10 @@ module.exports = async (req, res) => {
     // Authenticate user with Clerk
     const session = await authenticateUser(req);
     
-    // Check if TickTick credentials are configured
-    if (!process.env.TICKTICK_USERNAME || !process.env.TICKTICK_PASSWORD) {
+    // Check if TickTick API token is configured
+    if (!process.env.TICKTICK_API_TOKEN) {
       return res.status(401).json({ 
-        error: 'TickTick credentials not configured'
+        error: 'TickTick API token not configured'
       });
     }
 
