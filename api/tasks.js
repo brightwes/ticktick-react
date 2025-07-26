@@ -20,6 +20,12 @@ const authenticateUser = async (req) => {
     const token = authHeader.substring(7);
     console.log('API: Token length:', token.length);
     
+    // TEMPORARY: Allow bypass authentication
+    if (token === 'bypass-auth-for-now') {
+      console.log('API: Using bypass authentication');
+      return { id: 'bypass-user' };
+    }
+    
     // Check if Clerk secret key is configured
     if (!process.env.CLERK_SECRET_KEY) {
       console.error('API: CLERK_SECRET_KEY not configured');
@@ -143,7 +149,7 @@ module.exports = async (req, res) => {
       });
     }
     
-    // Authenticate user with Clerk
+    // Authenticate user with Clerk (or bypass)
     const session = await authenticateUser(req);
     
     // Check if TickTick API token is configured

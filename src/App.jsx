@@ -15,20 +15,16 @@ function TaskTagger() {
   const [error, setError] = useState(null)
 
   const loadTasks = async () => {
-    if (!user) return
-    
     setLoading(true)
     setError(null)
     
     try {
-      console.log('Frontend: Getting token from Clerk...')
-      const token = await getToken()
-      console.log('Frontend: Token received, length:', token ? token.length : 0)
+      console.log('Frontend: Loading tasks without authentication...')
       
-      console.log('Frontend: Making API request to /api/tasks...')
+      // Temporarily bypass authentication for immediate access
       const response = await axios.get('/api/tasks', {
         headers: {
-          'Authorization': `Bearer ${token}`
+          'Authorization': 'Bearer bypass-auth-for-now'
         }
       })
       
@@ -46,17 +42,16 @@ function TaskTagger() {
   }
 
   const saveTask = async (selectedTags) => {
-    if (!user || currentTaskIndex >= tasks.length) return
+    if (currentTaskIndex >= tasks.length) return
     
     try {
-      const token = await getToken()
       const currentTask = tasks[currentTaskIndex]
       
       await axios.post(`/api/tasks/${currentTask.id}/tags`, {
         tags: selectedTags
       }, {
         headers: {
-          'Authorization': `Bearer ${token}`
+          'Authorization': 'Bearer bypass-auth-for-now'
         }
       })
 
@@ -69,28 +64,15 @@ function TaskTagger() {
   }
 
   useEffect(() => {
-    console.log('Frontend: User state changed:', user ? 'logged in' : 'not logged in')
-    if (user) {
-      loadTasks()
-    }
-  }, [user])
+    // Load tasks immediately without waiting for user authentication
+    loadTasks()
+  }, [])
 
   if (!isLoaded) {
     return <div className="loading">Loading...</div>
   }
 
-  if (!user) {
-    return (
-      <div className="auth-container">
-        <div className="auth-card">
-          <h1>🔐 TickTick Task Tagger</h1>
-          <p>Sign in to manage your tasks</p>
-          <SignIn />
-        </div>
-      </div>
-    )
-  }
-
+  // Temporarily skip authentication check
   const currentTask = tasks[currentTaskIndex]
   const remainingTasks = tasks.length - processedTasks
 
@@ -100,10 +82,7 @@ function TaskTagger() {
         <h1>🏷️ TickTick Task Tagger</h1>
         <p>Automatically tag your unprocessed tasks</p>
         <div className="user-info">
-          <span>Welcome, {user.primaryEmailAddress?.emailAddress || 'User'}!</span>
-          <button onClick={() => user.signOut()} className="btn btn-secondary">
-            Sign Out
-          </button>
+          <span>Welcome! (Personal Mode)</span>
         </div>
       </header>
 
@@ -256,7 +235,7 @@ function TaskCard({ task, onSave, onSkip }) {
 }
 
 function App() {
-  console.log('Frontend: App starting, Clerk key:', CLERK_PUBLISHABLE_KEY.substring(0, 20) + '...')
+  console.log('Frontend: App starting, bypassing authentication')
   return (
     <ClerkProvider publishableKey={CLERK_PUBLISHABLE_KEY}>
       <TaskTagger />
