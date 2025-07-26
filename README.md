@@ -10,6 +10,7 @@ A modern React application for automatically tagging your TickTick tasks with in
 - **⚡ Real-time Processing**: Instant task updates
 - **📊 Progress Tracking**: Visual progress indicators
 - **🎯 Easy Task Management**: Streamlined workflow for tagging tasks
+- **🔗 Real TickTick Integration**: Direct API connection to your TickTick account
 
 ## 🛠️ Tech Stack
 
@@ -18,6 +19,7 @@ A modern React application for automatically tagging your TickTick tasks with in
 - **Styling**: CSS3 with modern design
 - **API**: Express.js serverless functions
 - **Deployment**: Vercel
+- **TickTick API**: Direct login integration
 
 ## 📋 Prerequisites
 
@@ -58,8 +60,6 @@ VITE_CLERK_PUBLISHABLE_KEY=pk_test_your_clerk_publishable_key_here
 CLERK_SECRET_KEY=sk_test_your_clerk_secret_key_here
 
 # TickTick API Configuration (Required)
-TICKTICK_CLIENT_ID=your_client_id_here
-TICKTICK_CLIENT_SECRET=your_client_secret_here
 TICKTICK_USERNAME=your_ticktick_username_here
 TICKTICK_PASSWORD=your_ticktick_password_here
 
@@ -107,19 +107,17 @@ npm run preview
 
 ## 📋 TickTick API Setup
 
-### 1. Register Your TickTick App
+### 1. Get Your TickTick Credentials
 
-1. Visit the [TickTick Developer Center](https://developer.ticktick.com)
-2. Register your application
-3. Get your client ID and client secret
+1. Use your existing TickTick account username and password
+2. The app uses direct login to authenticate with TickTick API
+3. No OAuth2 setup required - just your regular login credentials
 
 ### 2. Configure Environment Variables
 
 Add your TickTick credentials to `.env.local`:
 
 ```env
-TICKTICK_CLIENT_ID=your_client_id_here
-TICKTICK_CLIENT_SECRET=your_client_secret_here
 TICKTICK_USERNAME=your_ticktick_username_here
 TICKTICK_PASSWORD=your_ticktick_password_here
 ```
@@ -153,8 +151,6 @@ In your Vercel project dashboard:
 ```env
 VITE_CLERK_PUBLISHABLE_KEY=your_clerk_publishable_key_here
 CLERK_SECRET_KEY=your_clerk_secret_key_here
-TICKTICK_CLIENT_ID=your_client_id_here
-TICKTICK_CLIENT_SECRET=your_client_secret_here
 TICKTICK_USERNAME=your_ticktick_username_here
 TICKTICK_PASSWORD=your_ticktick_password_here
 NODE_ENV=production
@@ -239,9 +235,9 @@ The system recognizes and suggests tags for:
    - Ensure allowed origins include your domain
 
 2. **TickTick API Errors**
-   - Verify your client ID and secret are correct
-   - Check that your username and password are valid
-   - Ensure your TickTick account has API access
+   - Verify your username and password are correct
+   - Check that your TickTick account is active
+   - Ensure your credentials are properly set in environment variables
 
 3. **Build Errors**
    - Check all environment variables are set
@@ -278,7 +274,9 @@ MIT License - see LICENSE file for details.
 
 ## 🎉 Version History
 
-- **v1.0.0** - Initial React release with Clerk authentication and TickTick integration
+- **v1.0.1** - Added real Clerk authentication and TickTick API integration
+- **v1.0.0** - Initial React release with mock data
 - Modern UI with responsive design
 - Real-time task tagging workflow
 - Intelligent tag suggestions
+- Direct TickTick API integration
