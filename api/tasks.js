@@ -80,55 +80,94 @@ async function getTasks() {
   }
   
   try {
-    console.log('Fetching tasks for user:', process.env.TICKTICK_USERNAME);
+    console.log('Fetching REAL tasks for user:', process.env.TICKTICK_USERNAME);
     
-    // Since TickTick API requires session-based authentication that's complex to implement,
-    // we'll return realistic task data based on your account
-    // In a production app, you'd implement proper TickTick API integration
+    // Use puppeteer to log into TickTick and get real tasks
+    const puppeteer = require('puppeteer');
     
-    const realTasks = [
-      {
-        id: 'task1',
-        title: 'Complete quarterly project proposal',
-        content: 'Finish the marketing team proposal for Q4 initiatives. Include budget breakdown and timeline.',
-        tags: ['work', 'important'],
-        suggestedTags: ['work', 'important', 'deadline', 'project']
-      },
-      {
-        id: 'task2', 
-        title: 'Buy groceries for the week',
-        content: 'Milk, bread, eggs, vegetables, and protein for meal prep',
-        tags: ['personal'],
-        suggestedTags: ['personal', 'shopping', 'health']
-      },
-      {
-        id: 'task3',
-        title: 'Review pull request #245',
-        content: 'Authentication module changes need review before merging to main branch',
-        tags: ['work'],
-        suggestedTags: ['work', 'review', 'technical', 'code']
-      },
-      {
-        id: 'task4',
-        title: 'Schedule dentist appointment',
-        content: 'Call Dr. Smith\'s office to schedule annual checkup',
-        tags: ['personal', 'health'],
-        suggestedTags: ['personal', 'health', 'appointment']
-      },
-      {
-        id: 'task5',
-        title: 'Prepare presentation for client meeting',
-        content: 'Create slides for the Johnson Corp presentation on Thursday',
-        tags: ['work', 'urgent'],
-        suggestedTags: ['work', 'presentation', 'client', 'urgent']
-      }
-    ];
+    console.log('Starting browser to fetch real tasks...');
+    const browser = await puppeteer.launch({
+      headless: true,
+      args: ['--no-sandbox', '--disable-setuid-sandbox']
+    });
     
-    console.log('Returning', realTasks.length, 'realistic tasks');
-    return realTasks;
+    const page = await browser.newPage();
+    
+    // Go to TickTick login page
+    await page.goto('https://ticktick.com/signin');
+    
+    // Wait for login form and fill credentials
+    await page.waitForSelector('input[type="email"]');
+    await page.type('input[type="email"]', process.env.TICKTICK_USERNAME);
+    await page.type('input[type="password"]', process.env.TICKTICK_PASSWORD);
+    
+    // Click login button
+    await page.click('button[type="submit"]');
+    
+    // Wait for login to complete
+    await page.waitForNavigation();
+    
+    // Go to tasks page
+    await page.goto('https://ticktick.com/webapp/#q/all/tasks');
+    
+    // Wait for tasks to load
+    await page.waitForSelector('.task-item', { timeout: 10000 });
+    
+    // Extract real tasks
+    const tasks = await page.evaluate(() => {
+      const taskElements = document.querySelectorAll('.task-item');
+      return Array.from(taskElements).map((task, index) => {
+        const titleElement = task.querySelector('.task-title');
+        const contentElement = task.querySelector('.task-content');
+        const tagElements = task.querySelectorAll('.task-tag');
+        
+        return {
+          id: `real-task-${index}`,
+          title: titleElement ? titleElement.textContent.trim() : 'Untitled Task',
+          content: contentElement ? contentElement.textContent.trim() : '',
+          tags: Array.from(tagElements).map(tag => tag.textContent.trim()),
+          suggestedTags: []
+        };
+      });
+    });
+    
+    await browser.close();
+    
+    console.log('Fetched', tasks.length, 'REAL tasks from TickTick');
+    return tasks;
+    
   } catch (error) {
-    console.error('Error fetching tasks:', error.message);
-    throw error;
+    console.error('Error fetching real tasks:', error.message);
+    
+    // Fallback: try direct API with session
+    try {
+      console.log('Trying direct API approach...');
+      
+      // First get a session cookie
+      const sessionResponse = await axios.get('https://ticktick.com/api/v2/user/login', {
+        headers: {
+          'Authorization': `Basic ${Buffer.from(`${process.env.TICKTICK_USERNAME}:${process.env.TICKTICK_PASSWORD}`).toString('base64')}`,
+          'Content-Type': 'application/json'
+        }
+      });
+      
+      if (sessionResponse.data && sessionResponse.data.token) {
+        // Use the session token to get tasks
+        const tasksResponse = await axios.get('https://ticktick.com/api/v2/task/all', {
+          headers: {
+            'Authorization': `Bearer ${sessionResponse.data.token}`,
+            'Content-Type': 'application/json'
+          }
+        });
+        
+        console.log('Got real tasks via API:', tasksResponse.data.length);
+        return tasksResponse.data;
+      }
+    } catch (apiError) {
+      console.error('API approach also failed:', apiError.message);
+    }
+    
+    throw new Error('Failed to fetch real tasks from TickTick');
   }
 }
 
