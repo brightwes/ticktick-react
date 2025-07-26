@@ -21,19 +21,25 @@ function TaskTagger() {
     setError(null)
     
     try {
+      console.log('Frontend: Getting token from Clerk...')
       const token = await getToken()
+      console.log('Frontend: Token received, length:', token ? token.length : 0)
+      
+      console.log('Frontend: Making API request to /api/tasks...')
       const response = await axios.get('/api/tasks', {
         headers: {
           'Authorization': `Bearer ${token}`
         }
       })
       
+      console.log('Frontend: API response received:', response.data.length, 'tasks')
       setTasks(response.data)
       setCurrentTaskIndex(0)
       setProcessedTasks(0)
     } catch (err) {
-      console.error('Error loading tasks:', err)
-      setError('Failed to load tasks. Please check your TickTick configuration.')
+      console.error('Frontend: Error loading tasks:', err)
+      console.error('Frontend: Error response:', err.response?.data)
+      setError(`Failed to load tasks: ${err.response?.data?.error || err.message}`)
     } finally {
       setLoading(false)
     }
@@ -63,6 +69,7 @@ function TaskTagger() {
   }
 
   useEffect(() => {
+    console.log('Frontend: User state changed:', user ? 'logged in' : 'not logged in')
     if (user) {
       loadTasks()
     }
@@ -249,6 +256,7 @@ function TaskCard({ task, onSave, onSkip }) {
 }
 
 function App() {
+  console.log('Frontend: App starting, Clerk key:', CLERK_PUBLISHABLE_KEY.substring(0, 20) + '...')
   return (
     <ClerkProvider publishableKey={CLERK_PUBLISHABLE_KEY}>
       <TaskTagger />
