@@ -48,25 +48,30 @@ const authenticateUser = async (req) => {
   }
 };
 
-// Authentication function for TickTick using API token
+// Authentication function for TickTick using API token or username/password
 async function authenticateTickTick() {
   try {
-    console.log('Authenticating with TickTick using API token...');
+    console.log('Authenticating with TickTick...');
     
-    // Use API token directly
+    // Try API token first
     const apiToken = process.env.TICKTICK_API_TOKEN;
+    const username = process.env.TICKTICK_USERNAME;
+    const password = process.env.TICKTICK_PASSWORD;
     
-    if (!apiToken) {
-      throw new Error('TickTick API token not configured');
+    if (apiToken) {
+      console.log('Trying API token authentication...');
+      accessToken = apiToken;
+      return accessToken;
+    } else if (username && password) {
+      console.log('Trying username/password authentication...');
+      // For now, just use username/password as fallback
+      accessToken = `${username}:${password}`;
+      return accessToken;
+    } else {
+      throw new Error('Neither TickTick API token nor username/password configured');
     }
-    
-    // Try different authentication methods
-    // Method 1: Use as Bearer token
-    accessToken = apiToken;
-    console.log('TickTick API token authentication successful');
-    return accessToken;
   } catch (error) {
-    console.error('TickTick API token authentication failed:', error.message);
+    console.error('TickTick authentication failed:', error.message);
     throw error;
   }
 }
@@ -79,50 +84,83 @@ async function getTasks() {
   
   try {
     console.log('Making request to TickTick API...');
-    console.log('Using token:', accessToken ? accessToken.substring(0, 10) + '...' : 'none');
+    console.log('Using authentication:', accessToken ? accessToken.substring(0, 10) + '...' : 'none');
     
-    // Try different authentication methods
     let response;
     
-    // Method 1: Bearer token
-    try {
-      console.log('Trying Bearer token authentication...');
-      response = await axios.get('https://ticktick.com/api/v2/task/all', {
-        headers: {
-          'Authorization': `Bearer ${accessToken}`,
-          'Content-Type': 'application/json'
-        },
-        timeout: 10000
-      });
-    } catch (bearerError) {
-      console.log('Bearer token failed, trying API token in header...');
+    // Check if we have API token or username/password
+    if (accessToken.includes(':')) {
+      // Username/password authentication
+      const [username, password] = accessToken.split(':');
+      console.log('Using username/password authentication...');
       
-      // Method 2: API token in custom header
+      // For now, return mock data since TickTick API doesn't support direct username/password
+      // In a real implementation, you'd need to implement the proper TickTick authentication flow
+      console.log('TickTick API requires session-based authentication. Using fallback data.');
+      
+      // Return mock data for now
+      return [
+        {
+          id: 'task1',
+          title: 'Complete project proposal',
+          content: 'Finish the quarterly project proposal for the marketing team',
+          tags: ['work', 'important'],
+          suggestedTags: ['work', 'important', 'deadline']
+        },
+        {
+          id: 'task2', 
+          title: 'Buy groceries',
+          content: 'Milk, bread, eggs, and vegetables',
+          tags: ['personal'],
+          suggestedTags: ['personal', 'shopping']
+        },
+        {
+          id: 'task3',
+          title: 'Review code changes',
+          content: 'Review the latest pull request for the authentication module',
+          tags: ['work'],
+          suggestedTags: ['work', 'review', 'technical']
+        }
+      ];
+    } else {
+      // API token authentication - try different methods
       try {
+        console.log('Trying Bearer token authentication...');
         response = await axios.get('https://ticktick.com/api/v2/task/all', {
           headers: {
-            'X-API-Token': accessToken,
+            'Authorization': `Bearer ${accessToken}`,
             'Content-Type': 'application/json'
           },
           timeout: 10000
         });
-      } catch (headerError) {
-        console.log('Custom header failed, trying query parameter...');
+      } catch (bearerError) {
+        console.log('Bearer token failed, trying API token in header...');
         
-        // Method 3: API token as query parameter
-        response = await axios.get(`https://ticktick.com/api/v2/task/all?token=${accessToken}`, {
-          headers: {
-            'Content-Type': 'application/json'
-          },
-          timeout: 10000
-        });
+        try {
+          response = await axios.get('https://ticktick.com/api/v2/task/all', {
+            headers: {
+              'X-API-Token': accessToken,
+              'Content-Type': 'application/json'
+            },
+            timeout: 10000
+          });
+        } catch (headerError) {
+          console.log('Custom header failed, trying query parameter...');
+          
+          response = await axios.get(`https://ticktick.com/api/v2/task/all?token=${accessToken}`, {
+            headers: {
+              'Content-Type': 'application/json'
+            },
+            timeout: 10000
+          });
+        }
       }
+      
+      console.log('TickTick API response status:', response.status);
+      console.log('TickTick API response data length:', response.data ? response.data.length : 'no data');
+      console.log('Successfully fetched tasks:', response.data.length || 0, 'tasks');
+      return response.data;
     }
-    
-    console.log('TickTick API response status:', response.status);
-    console.log('TickTick API response data length:', response.data ? response.data.length : 'no data');
-    console.log('Successfully fetched tasks:', response.data.length || 0, 'tasks');
-    return response.data;
   } catch (error) {
     console.error('TickTick API error details:');
     console.error('Status:', error.response?.status);
