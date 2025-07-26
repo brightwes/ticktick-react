@@ -76,18 +76,28 @@ async function getTasks() {
   }
   
   try {
+    console.log('Making request to TickTick API...');
+    console.log('Using token:', accessToken ? accessToken.substring(0, 10) + '...' : 'none');
+    
     // Use the correct endpoint for fetching tasks
     const response = await axios.get('https://ticktick.com/api/v2/task/all', {
       headers: {
         'Authorization': `Bearer ${accessToken}`,
         'Content-Type': 'application/json'
-      }
+      },
+      timeout: 10000
     });
     
+    console.log('TickTick API response status:', response.status);
+    console.log('TickTick API response data length:', response.data ? response.data.length : 'no data');
     console.log('Successfully fetched tasks:', response.data.length || 0, 'tasks');
     return response.data;
   } catch (error) {
-    console.error('Failed to fetch tasks:', error.response?.data || error.message);
+    console.error('TickTick API error details:');
+    console.error('Status:', error.response?.status);
+    console.error('Status text:', error.response?.statusText);
+    console.error('Response data:', error.response?.data);
+    console.error('Error message:', error.message);
     throw error;
   }
 }
