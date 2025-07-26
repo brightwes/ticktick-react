@@ -7,22 +7,38 @@ let accessToken = null;
 // Clerk authentication middleware
 const authenticateUser = async (req) => {
   try {
+    console.log('API: Starting Clerk authentication...');
+    
     const authHeader = req.headers.authorization;
+    console.log('API: Auth header present:', !!authHeader);
+    
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      console.log('API: No valid authorization header');
       throw new Error('No authorization token provided');
     }
 
     const token = authHeader.substring(7);
+    console.log('API: Token length:', token.length);
+    
+    // Check if Clerk secret key is configured
+    if (!process.env.CLERK_SECRET_KEY) {
+      console.error('API: CLERK_SECRET_KEY not configured');
+      throw new Error('Clerk secret key not configured');
+    }
+    
+    console.log('API: Verifying session with Clerk...');
     const session = await clerkClient.sessions.verifySession(token);
     
     if (!session) {
+      console.log('API: Invalid session returned from Clerk');
       throw new Error('Invalid session');
     }
-
+    
+    console.log('API: Clerk authentication successful');
     return session;
   } catch (error) {
-    console.error('Authentication error:', error);
-    throw new Error('Authentication failed');
+    console.error('API: Clerk authentication error:', error.message);
+    throw new Error('Authentication failed: ' + error.message);
   }
 };
 
@@ -118,6 +134,14 @@ module.exports = async (req, res) => {
     }
 
     console.log('API: Fetching tasks...');
+    
+    // Check if Clerk secret key is configured
+    if (!process.env.CLERK_SECRET_KEY) {
+      console.error('API: CLERK_SECRET_KEY not configured');
+      return res.status(500).json({ 
+        error: 'Clerk secret key not configured. Please set CLERK_SECRET_KEY in your environment variables.'
+      });
+    }
     
     // Authenticate user with Clerk
     const session = await authenticateUser(req);
