@@ -60,6 +60,8 @@ async function authenticateTickTick() {
       throw new Error('TickTick API token not configured');
     }
     
+    // Try different authentication methods
+    // Method 1: Use as Bearer token
     accessToken = apiToken;
     console.log('TickTick API token authentication successful');
     return accessToken;
@@ -79,14 +81,43 @@ async function getTasks() {
     console.log('Making request to TickTick API...');
     console.log('Using token:', accessToken ? accessToken.substring(0, 10) + '...' : 'none');
     
-    // Use the correct endpoint for fetching tasks
-    const response = await axios.get('https://ticktick.com/api/v2/task/all', {
-      headers: {
-        'Authorization': `Bearer ${accessToken}`,
-        'Content-Type': 'application/json'
-      },
-      timeout: 10000
-    });
+    // Try different authentication methods
+    let response;
+    
+    // Method 1: Bearer token
+    try {
+      console.log('Trying Bearer token authentication...');
+      response = await axios.get('https://ticktick.com/api/v2/task/all', {
+        headers: {
+          'Authorization': `Bearer ${accessToken}`,
+          'Content-Type': 'application/json'
+        },
+        timeout: 10000
+      });
+    } catch (bearerError) {
+      console.log('Bearer token failed, trying API token in header...');
+      
+      // Method 2: API token in custom header
+      try {
+        response = await axios.get('https://ticktick.com/api/v2/task/all', {
+          headers: {
+            'X-API-Token': accessToken,
+            'Content-Type': 'application/json'
+          },
+          timeout: 10000
+        });
+      } catch (headerError) {
+        console.log('Custom header failed, trying query parameter...');
+        
+        // Method 3: API token as query parameter
+        response = await axios.get(`https://ticktick.com/api/v2/task/all?token=${accessToken}`, {
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          timeout: 10000
+        });
+      }
+    }
     
     console.log('TickTick API response status:', response.status);
     console.log('TickTick API response data length:', response.data ? response.data.length : 'no data');
