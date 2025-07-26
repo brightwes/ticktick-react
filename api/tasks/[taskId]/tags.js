@@ -26,21 +26,30 @@ const authenticateUser = async (req) => {
   }
 };
 
-// Authentication function for TickTick
+// Authentication function for TickTick using direct login
 async function authenticateTickTick() {
   try {
-    const response = await axios.post(`${TICKTICK_API_BASE}/oauth/token`, {
-      client_id: process.env.TICKTICK_CLIENT_ID,
-      client_secret: process.env.TICKTICK_CLIENT_SECRET,
-      grant_type: 'password',
+    console.log('Authenticating with TickTick using direct login...');
+    
+    // Use direct login instead of OAuth2
+    const loginResponse = await axios.post('https://ticktick.com/api/v2/user/login', {
       username: process.env.TICKTICK_USERNAME,
       password: process.env.TICKTICK_PASSWORD
+    }, {
+      headers: {
+        'Content-Type': 'application/json'
+      }
     });
     
-    accessToken = response.data.access_token;
-    return accessToken;
+    if (loginResponse.data && loginResponse.data.token) {
+      accessToken = loginResponse.data.token;
+      console.log('TickTick direct authentication successful');
+      return accessToken;
+    } else {
+      throw new Error('No access token received from TickTick');
+    }
   } catch (error) {
-    console.error('Authentication failed:', error.message);
+    console.error('TickTick direct authentication failed:', error.response?.data || error.message);
     throw error;
   }
 }
@@ -54,7 +63,7 @@ async function updateTask(taskId, tags) {
     // Add "processed" tag to mark this task as completed
     const tagsWithProcessed = [...tags, 'processed'];
     
-    const response = await axios.put(`${TICKTICK_API_BASE}/task/${taskId}`, {
+    const response = await axios.put(`https://ticktick.com/api/v2/task/${taskId}`, {
       tags: tagsWithProcessed
     }, {
       headers: {

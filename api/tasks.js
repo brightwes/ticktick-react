@@ -27,21 +27,30 @@ const authenticateUser = async (req) => {
   }
 };
 
-// Authentication function for TickTick
+// Authentication function for TickTick using direct login
 async function authenticateTickTick() {
   try {
-    const response = await axios.post(`${TICKTICK_API_BASE}/oauth/token`, {
-      client_id: process.env.TICKTICK_CLIENT_ID,
-      client_secret: process.env.TICKTICK_CLIENT_SECRET,
-      grant_type: 'password',
+    console.log('Authenticating with TickTick using direct login...');
+    
+    // Use direct login instead of OAuth2
+    const loginResponse = await axios.post('https://ticktick.com/api/v2/user/login', {
       username: process.env.TICKTICK_USERNAME,
       password: process.env.TICKTICK_PASSWORD
+    }, {
+      headers: {
+        'Content-Type': 'application/json'
+      }
     });
     
-    accessToken = response.data.access_token;
-    return accessToken;
+    if (loginResponse.data && loginResponse.data.token) {
+      accessToken = loginResponse.data.token;
+      console.log('TickTick direct authentication successful');
+      return accessToken;
+    } else {
+      throw new Error('No access token received from TickTick');
+    }
   } catch (error) {
-    console.error('Authentication failed:', error.message);
+    console.error('TickTick direct authentication failed:', error.response?.data || error.message);
     throw error;
   }
 }
@@ -53,7 +62,8 @@ async function getTasks() {
   }
   
   try {
-    const response = await axios.get(`${TICKTICK_API_BASE}/task/all`, {
+    // Use the correct endpoint for fetching tasks with Bearer token
+    const response = await axios.get('https://ticktick.com/api/v2/task/all', {
       headers: {
         'Authorization': `Bearer ${accessToken}`,
         'Content-Type': 'application/json'
@@ -118,7 +128,7 @@ module.exports = async (req, res) => {
     const session = await authenticateUser(req);
     
     // Check if TickTick credentials are configured
-    if (!process.env.TICKTICK_CLIENT_ID || !process.env.TICKTICK_CLIENT_SECRET) {
+    if (!process.env.TICKTICK_USERNAME || !process.env.TICKTICK_PASSWORD) {
       return res.status(401).json({ 
         error: 'TickTick credentials not configured'
       });

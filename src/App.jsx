@@ -1,54 +1,34 @@
 import { useState, useEffect } from 'react'
+import { ClerkProvider, SignIn, SignUp, useUser, useAuth } from '@clerk/clerk-react'
 import axios from 'axios'
 import './App.css'
 
-// Mock data for testing without authentication
-const mockTasks = [
-  {
-    id: '1',
-    title: 'Review quarterly reports',
-    content: 'Need to review and approve all quarterly financial reports before the board meeting',
-    dueDate: '2024-01-15',
-    projectName: 'Finance',
-    priority: 'High',
-    suggestedTags: ['work', 'important', 'review']
-  },
-  {
-    id: '2',
-    title: 'Buy groceries for dinner',
-    content: 'Need to pick up ingredients for tonight\'s dinner including vegetables and meat',
-    dueDate: '2024-01-10',
-    projectName: 'Personal',
-    priority: 'Normal',
-    suggestedTags: ['personal', 'shopping']
-  },
-  {
-    id: '3',
-    title: 'Schedule team meeting',
-    content: 'Coordinate with team members to schedule the weekly standup meeting',
-    dueDate: '2024-01-12',
-    projectName: 'Work',
-    priority: 'Normal',
-    suggestedTags: ['work', 'meeting']
-  }
-]
+const CLERK_PUBLISHABLE_KEY = import.meta.env.VITE_CLERK_PUBLISHABLE_KEY || 'pk_test_your_clerk_publishable_key_here'
 
 function TaskTagger() {
+  const { user, isLoaded } = useUser()
+  const { getToken } = useAuth()
   const [tasks, setTasks] = useState([])
   const [currentTaskIndex, setCurrentTaskIndex] = useState(0)
   const [processedTasks, setProcessedTasks] = useState(0)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
-  const [isAuthenticated, setIsAuthenticated] = useState(false)
 
   const loadTasks = async () => {
+    if (!user) return
+    
     setLoading(true)
     setError(null)
     
     try {
-      // For now, use mock data instead of API call
-      // In production, this would be: const response = await axios.get('/api/tasks')
-      setTasks(mockTasks)
+      const token = await getToken()
+      const response = await axios.get('/api/tasks', {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      })
+      
+      setTasks(response.data)
       setCurrentTaskIndex(0)
       setProcessedTasks(0)
     } catch (err) {
@@ -60,13 +40,20 @@ function TaskTagger() {
   }
 
   const saveTask = async (selectedTags) => {
-    if (currentTaskIndex >= tasks.length) return
+    if (!user || currentTaskIndex >= tasks.length) return
     
     try {
-      // For now, just simulate saving
-      // In production, this would be: await axios.post(`/api/tasks/${currentTask.id}/tags`, { tags: selectedTags })
-      console.log('Saving task with tags:', selectedTags)
+      const token = await getToken()
+      const currentTask = tasks[currentTaskIndex]
       
+      await axios.post(`/api/tasks/${currentTask.id}/tags`, {
+        tags: selectedTags
+      }, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      })
+
       setProcessedTasks(prev => prev + 1)
       setCurrentTaskIndex(prev => prev + 1)
     } catch (err) {
@@ -76,9 +63,26 @@ function TaskTagger() {
   }
 
   useEffect(() => {
-    // Load tasks on component mount
-    loadTasks()
-  }, [])
+    if (user) {
+      loadTasks()
+    }
+  }, [user])
+
+  if (!isLoaded) {
+    return <div className="loading">Loading...</div>
+  }
+
+  if (!user) {
+    return (
+      <div className="auth-container">
+        <div className="auth-card">
+          <h1>🔐 TickTick Task Tagger</h1>
+          <p>Sign in to manage your tasks</p>
+          <SignIn />
+        </div>
+      </div>
+    )
+  }
 
   const currentTask = tasks[currentTaskIndex]
   const remainingTasks = tasks.length - processedTasks
@@ -89,9 +93,9 @@ function TaskTagger() {
         <h1>🏷️ TickTick Task Tagger</h1>
         <p>Automatically tag your unprocessed tasks</p>
         <div className="user-info">
-          <span>Welcome! (Demo Mode)</span>
-          <button onClick={() => setIsAuthenticated(!isAuthenticated)} className="btn btn-secondary">
-            {isAuthenticated ? 'Sign Out' : 'Sign In'}
+          <span>Welcome, {user.primaryEmailAddress?.emailAddress || 'User'}!</span>
+          <button onClick={() => user.signOut()} className="btn btn-secondary">
+            Sign Out
           </button>
         </div>
       </header>
@@ -245,7 +249,11 @@ function TaskCard({ task, onSave, onSkip }) {
 }
 
 function App() {
-  return <TaskTagger />
+  return (
+    <ClerkProvider publishableKey={CLERK_PUBLISHABLE_KEY}>
+      <TaskTagger />
+    </ClerkProvider>
+  )
 }
 
 export default App
