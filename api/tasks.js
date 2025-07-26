@@ -48,28 +48,42 @@ const authenticateUser = async (req) => {
   }
 };
 
-// Authentication function for TickTick using API token or username/password
+// Authentication function for TickTick using username/password
 async function authenticateTickTick() {
   try {
     console.log('Authenticating with TickTick...');
     
-    // Try API token first
-    const apiToken = process.env.TICKTICK_API_TOKEN;
     const username = process.env.TICKTICK_USERNAME;
     const password = process.env.TICKTICK_PASSWORD;
     
-    if (apiToken) {
-      console.log('Trying API token authentication...');
-      accessToken = apiToken;
-      return accessToken;
-    } else if (username && password) {
-      console.log('Trying username/password authentication...');
-      // For now, just use username/password as fallback
-      accessToken = `${username}:${password}`;
-      return accessToken;
-    } else {
-      throw new Error('Neither TickTick API token nor username/password configured');
+    if (!username || !password) {
+      throw new Error('TickTick username and password not configured');
     }
+    
+    console.log('Logging in with username/password...');
+    
+    // First, get a session by logging in
+    const loginResponse = await axios.post('https://ticktick.com/api/v2/user/login', {
+      username: username,
+      password: password
+    }, {
+      headers: {
+        'Content-Type': 'application/json'
+      }
+    });
+    
+    console.log('Login response status:', loginResponse.status);
+    
+    // Extract session token from response
+    const sessionToken = loginResponse.data.token || loginResponse.headers['set-cookie'];
+    
+    if (!sessionToken) {
+      throw new Error('No session token received from login');
+    }
+    
+    accessToken = sessionToken;
+    console.log('TickTick authentication successful');
+    return accessToken;
   } catch (error) {
     console.error('TickTick authentication failed:', error.message);
     throw error;
@@ -84,83 +98,21 @@ async function getTasks() {
   
   try {
     console.log('Making request to TickTick API...');
-    console.log('Using authentication:', accessToken ? accessToken.substring(0, 10) + '...' : 'none');
+    console.log('Using session token:', accessToken ? accessToken.substring(0, 10) + '...' : 'none');
     
-    let response;
+    // Use session token to get tasks
+    const response = await axios.get('https://ticktick.com/api/v2/task/all', {
+      headers: {
+        'Authorization': `Bearer ${accessToken}`,
+        'Content-Type': 'application/json'
+      },
+      timeout: 10000
+    });
     
-    // Check if we have API token or username/password
-    if (accessToken.includes(':')) {
-      // Username/password authentication
-      const [username, password] = accessToken.split(':');
-      console.log('Using username/password authentication...');
-      
-      // For now, return mock data since TickTick API doesn't support direct username/password
-      // In a real implementation, you'd need to implement the proper TickTick authentication flow
-      console.log('TickTick API requires session-based authentication. Using fallback data.');
-      
-      // Return mock data for now
-      return [
-        {
-          id: 'task1',
-          title: 'Complete project proposal',
-          content: 'Finish the quarterly project proposal for the marketing team',
-          tags: ['work', 'important'],
-          suggestedTags: ['work', 'important', 'deadline']
-        },
-        {
-          id: 'task2', 
-          title: 'Buy groceries',
-          content: 'Milk, bread, eggs, and vegetables',
-          tags: ['personal'],
-          suggestedTags: ['personal', 'shopping']
-        },
-        {
-          id: 'task3',
-          title: 'Review code changes',
-          content: 'Review the latest pull request for the authentication module',
-          tags: ['work'],
-          suggestedTags: ['work', 'review', 'technical']
-        }
-      ];
-    } else {
-      // API token authentication - try different methods
-      try {
-        console.log('Trying Bearer token authentication...');
-        response = await axios.get('https://ticktick.com/api/v2/task/all', {
-          headers: {
-            'Authorization': `Bearer ${accessToken}`,
-            'Content-Type': 'application/json'
-          },
-          timeout: 10000
-        });
-      } catch (bearerError) {
-        console.log('Bearer token failed, trying API token in header...');
-        
-        try {
-          response = await axios.get('https://ticktick.com/api/v2/task/all', {
-            headers: {
-              'X-API-Token': accessToken,
-              'Content-Type': 'application/json'
-            },
-            timeout: 10000
-          });
-        } catch (headerError) {
-          console.log('Custom header failed, trying query parameter...');
-          
-          response = await axios.get(`https://ticktick.com/api/v2/task/all?token=${accessToken}`, {
-            headers: {
-              'Content-Type': 'application/json'
-            },
-            timeout: 10000
-          });
-        }
-      }
-      
-      console.log('TickTick API response status:', response.status);
-      console.log('TickTick API response data length:', response.data ? response.data.length : 'no data');
-      console.log('Successfully fetched tasks:', response.data.length || 0, 'tasks');
-      return response.data;
-    }
+    console.log('TickTick API response status:', response.status);
+    console.log('TickTick API response data length:', response.data ? response.data.length : 'no data');
+    console.log('Successfully fetched tasks:', response.data.length || 0, 'tasks');
+    return response.data;
   } catch (error) {
     console.error('TickTick API error details:');
     console.error('Status:', error.response?.status);
