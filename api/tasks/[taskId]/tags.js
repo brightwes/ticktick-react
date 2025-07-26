@@ -1,37 +1,13 @@
 const axios = require('axios');
-// const { clerkClient } = require('@clerk/clerk-sdk-node');
 
-const TICKTICK_API_BASE = 'https://api.ticktick.com/api/v2';
 let accessToken = null;
-
-// Clerk authentication middleware
-// const authenticateUser = async (req) => {
-//   try {
-//     const authHeader = req.headers.authorization;
-//     if (!authHeader || !authHeader.startsWith('Bearer ')) {
-//       throw new Error('No authorization token provided');
-//     }
-
-//     const token = authHeader.substring(7);
-//     const session = await clerkClient.sessions.verifySession(token);
-    
-//     if (!session) {
-//       throw new Error('Invalid session');
-//     }
-
-//     return session;
-//   } catch (error) {
-//     console.error('Authentication error:', error);
-//     throw new Error('Authentication failed');
-//   }
-// };
 
 // Authentication function for TickTick using API token
 async function authenticateTickTick() {
   try {
     console.log('Authenticating with TickTick using API token...');
     
-    // Use API token directly instead of username/password
+    // Use API token directly
     const apiToken = process.env.TICKTICK_API_TOKEN;
     
     if (!apiToken) {
@@ -56,6 +32,8 @@ async function updateTask(taskId, tags) {
     // Add "processed" tag to mark this task as completed
     const tagsWithProcessed = [...tags, 'processed'];
     
+    console.log('Updating task', taskId, 'with tags:', tagsWithProcessed);
+    
     const response = await axios.put(`https://ticktick.com/api/v2/task/${taskId}`, {
       tags: tagsWithProcessed
     }, {
@@ -65,6 +43,7 @@ async function updateTask(taskId, tags) {
       }
     });
 
+    console.log('Successfully updated task:', taskId);
     return response.data;
   } catch (error) {
     console.error('Error updating task:', error.response?.data || error.message);
@@ -83,8 +62,7 @@ module.exports = async (req, res) => {
   }
 
   try {
-    // Authenticate user with Clerk (temporarily disabled)
-    // const session = await authenticateUser(req);
+    console.log('API: Updating task...');
     
     const { taskId } = req.query;
     const { tags } = req.body;
@@ -93,15 +71,38 @@ module.exports = async (req, res) => {
       return res.status(400).json({ error: 'Missing taskId or tags' });
     }
 
+    if (!process.env.TICKTICK_API_TOKEN) {
+      return res.status(401).json({ 
+        error: 'TickTick API token not configured. Please set TICKTICK_API_TOKEN in your environment variables.'
+      });
+    }
+
     const updatedTask = await updateTask(taskId, tags);
     res.json({ success: true, message: 'Task updated successfully' });
   } catch (error) {
-    console.error('Error updating task:', error);
+    console.error('API: Error updating task:', error);
     
-    if (error.message.includes('Authentication')) {
-      return res.status(401).json({ error: error.message });
+    if (error.response?.status === 401) {
+      return res.status(401).json({ 
+        error: 'TickTick authentication failed. Please check your API token.'
+      });
     }
     
-    res.status(500).json({ error: 'Failed to update task' });
+    if (error.response?.status === 403) {
+      return res.status(403).json({ 
+        error: 'Access denied. Please check your TickTick API permissions.'
+      });
+    }
+    
+    if (error.response?.status === 404) {
+      return res.status(404).json({ 
+        error: 'Task not found. The task may have been deleted or moved.'
+      });
+    }
+    
+    res.status(500).json({ 
+      error: 'Failed to update task',
+      details: error.message 
+    });
   }
 }; 

@@ -1,38 +1,14 @@
 const axios = require('axios');
-// const { clerkClient } = require('@clerk/clerk-sdk-node');
 
 // TickTick API configuration
-const TICKTICK_API_BASE = 'https://api.ticktick.com/api/v2';
 let accessToken = null;
-
-// Clerk authentication middleware
-// const authenticateUser = async (req) => {
-//   try {
-//     const authHeader = req.headers.authorization;
-//     if (!authHeader || !authHeader.startsWith('Bearer ')) {
-//       throw new Error('No authorization token provided');
-//     }
-
-//     const token = authHeader.substring(7);
-//     const session = await clerkClient.sessions.verifySession(token);
-    
-//     if (!session) {
-//       throw new Error('Invalid session');
-//     }
-
-//     return session;
-//   } catch (error) {
-//     console.error('Authentication error:', error);
-//     throw new Error('Authentication failed');
-//   }
-// };
 
 // Authentication function for TickTick using API token
 async function authenticateTickTick() {
   try {
     console.log('Authenticating with TickTick using API token...');
     
-    // Use API token directly instead of username/password
+    // Use API token directly
     const apiToken = process.env.TICKTICK_API_TOKEN;
     
     if (!apiToken) {
@@ -55,7 +31,7 @@ async function getTasks() {
   }
   
   try {
-    // Use the correct endpoint for fetching tasks with Bearer token
+    // Use the correct endpoint for fetching tasks
     const response = await axios.get('https://ticktick.com/api/v2/task/all', {
       headers: {
         'Authorization': `Bearer ${accessToken}`,
@@ -63,9 +39,10 @@ async function getTasks() {
       }
     });
     
+    console.log('Successfully fetched tasks:', response.data.length || 0, 'tasks');
     return response.data;
   } catch (error) {
-    console.error('Failed to fetch tasks:', error.message);
+    console.error('Failed to fetch tasks:', error.response?.data || error.message);
     throw error;
   }
 }
@@ -117,21 +94,25 @@ module.exports = async (req, res) => {
   }
 
   try {
-    // Authenticate user with Clerk (temporarily disabled)
-    // const session = await authenticateUser(req);
+    console.log('API: Fetching tasks...');
     
     // Check if TickTick API token is configured
     if (!process.env.TICKTICK_API_TOKEN) {
+      console.error('API: TickTick API token not configured');
       return res.status(401).json({ 
-        error: 'TickTick API token not configured'
+        error: 'TickTick API token not configured. Please set TICKTICK_API_TOKEN in your environment variables.'
       });
     }
 
     const tasks = await getTasks();
+    console.log('API: Fetched', tasks.length, 'tasks');
+    
     // Filter for unprocessed tasks (no "processed" tag)
     const unprocessedTasks = tasks.filter(task => 
       !task.tags || !task.tags.includes('processed')
     );
+    
+    console.log('API: Found', unprocessedTasks.length, 'unprocessed tasks');
     
     // Add tag suggestions to each task
     const tasksWithSuggestions = unprocessedTasks.map(task => ({
@@ -141,12 +122,23 @@ module.exports = async (req, res) => {
     
     res.json(tasksWithSuggestions);
   } catch (error) {
-    console.error('Error fetching tasks:', error);
+    console.error('API: Error fetching tasks:', error);
     
-    if (error.message.includes('Authentication')) {
-      return res.status(401).json({ error: error.message });
+    if (error.response?.status === 401) {
+      return res.status(401).json({ 
+        error: 'TickTick authentication failed. Please check your API token.'
+      });
     }
     
-    res.status(500).json({ error: 'Failed to fetch tasks' });
+    if (error.response?.status === 403) {
+      return res.status(403).json({ 
+        error: 'Access denied. Please check your TickTick API permissions.'
+      });
+    }
+    
+    res.status(500).json({ 
+      error: 'Failed to fetch tasks from TickTick',
+      details: error.message 
+    });
   }
 }; 
