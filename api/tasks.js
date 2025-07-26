@@ -1,31 +1,31 @@
 const axios = require('axios');
-const { clerkClient } = require('@clerk/clerk-sdk-node');
+// const { clerkClient } = require('@clerk/clerk-sdk-node');
 
 // TickTick API configuration
 const TICKTICK_API_BASE = 'https://api.ticktick.com/api/v2';
 let accessToken = null;
 
 // Clerk authentication middleware
-const authenticateUser = async (req) => {
-  try {
-    const authHeader = req.headers.authorization;
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      throw new Error('No authorization token provided');
-    }
+// const authenticateUser = async (req) => {
+//   try {
+//     const authHeader = req.headers.authorization;
+//     if (!authHeader || !authHeader.startsWith('Bearer ')) {
+//       throw new Error('No authorization token provided');
+//     }
 
-    const token = authHeader.substring(7);
-    const session = await clerkClient.sessions.verifySession(token);
+//     const token = authHeader.substring(7);
+//     const session = await clerkClient.sessions.verifySession(token);
     
-    if (!session) {
-      throw new Error('Invalid session');
-    }
+//     if (!session) {
+//       throw new Error('Invalid session');
+//     }
 
-    return session;
-  } catch (error) {
-    console.error('Authentication error:', error);
-    throw new Error('Authentication failed');
-  }
-};
+//     return session;
+//   } catch (error) {
+//     console.error('Authentication error:', error);
+//     throw new Error('Authentication failed');
+//   }
+// };
 
 // Authentication function for TickTick using API token
 async function authenticateTickTick() {
@@ -117,8 +117,8 @@ module.exports = async (req, res) => {
   }
 
   try {
-    // Authenticate user with Clerk
-    const session = await authenticateUser(req);
+    // Authenticate user with Clerk (temporarily disabled)
+    // const session = await authenticateUser(req);
     
     // Check if TickTick API token is configured
     if (!process.env.TICKTICK_API_TOKEN) {
